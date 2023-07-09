@@ -12,7 +12,8 @@ import (
 
     "github.com/spf13/cobra"
 	"github.com/tidwall/gjson"
-	"golang.org/x/net/dns/dnsutil"
+	//"golang.org/x/net/dns/dnsutil"
+	"github.com/miekg/dns"
 )
 
 
@@ -27,25 +28,47 @@ var rootCmd = &cobra.Command{
 	 Run: func(cmd *cobra.Command, args []string) { },
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
+rootCmd.Flags().StringVarP(&url, "url", "u", "", "The URL of the web page to monitor")
+rootCmd.Flags().IntVarP(&duration, "duration", "d", 10, "The duration in seconds to monitor the web page")
+
+rootCmd.Run = func(cmd *cobra.Command, args []string) {
+    start := time.Now()
+    client := &http.Client{}
+    request, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+
+    response, err := client.Do(request)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+
+    duration := time.Since(start).Seconds()
+    fmt.Println("The web page took", duration, "seconds to load")
+
+    // Get the response time from the external API endpoint
+    responseTime := gjson.Get(response.Body, "responseTime")
+    fmt.Println("The response time from the external API endpoint is", responseTime)
+
+    // Analyze the website
+    records, err := dns.LookupHost(url)
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+
+    for _, record := range records {
+        fmt.Println("Host:", record.Host)
+        fmt.Println("IP Address:", record.IP)
+    }
 }
 
-func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.Freeops-cli.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+err := rootCmd.Execute()
+if err != nil {
+    fmt.Println(err)
 }
 
 
